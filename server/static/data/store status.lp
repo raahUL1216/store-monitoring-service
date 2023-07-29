@@ -1,0 +1,1 @@
+restaurant_status,store_id=8419537941919820732 status=True 1674389379
