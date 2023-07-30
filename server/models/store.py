@@ -1,6 +1,6 @@
 from sqlalchemy import Column, SmallInteger, BigInteger, Integer, String, DateTime
 
-from ..database import Base
+from server.database import Base
 
 
 class RestaurantStatus(Base):

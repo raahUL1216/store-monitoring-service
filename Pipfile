@@ -10,6 +10,7 @@ pydantic = "~=1.10.12"
 python-dotenv = "*"
 sqlalchemy = "*"
 psycopg2 = "*"
+python-dateutil = "*"
 
 [dev-packages]
 

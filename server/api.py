@@ -1,17 +1,18 @@
 from fastapi import FastAPI, Depends, status, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from sqlalchemy.orm import Session
-from sqlalchemy import asc, or_, and_
 
-from .database import get_db
-from .models.response import HealthResponse, ReportBase
-from .models.store import Report, RestaurantStatus
+from server.database import get_db
+from server.schemas.response import HealthResponse, ReportBase
+from server.models.store import Report
 
-from .utils.store_availability import calculate_uptime_downtime
-from .utils.store_details import get_store_data
+from server.utils.store_availability import generate_store_availability_report
+from server.utils.store_details import get_restaurant_status, get_store_data
+from server.utils.datetime_utils import get_report_intervals
 
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
 
 app = FastAPI()
 
@@ -26,6 +27,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.mount("/static", StaticFiles(directory="server/static"), name="static")
+
 
 @app.get("/", status_code=status.HTTP_200_OK)
 async def health() -> HealthResponse:
@@ -33,56 +36,42 @@ async def health() -> HealthResponse:
 
 
 @app.post("/trigger_report", status_code=status.HTTP_201_CREATED)
-async def trigger_report(background_tasks: BackgroundTasks, store_data: dict = Depends(get_store_data), db: Session = Depends(get_db)) -> int:
+async def trigger_report(background_tasks: BackgroundTasks, store_data: dict = Depends(get_store_data), db: Session = Depends(get_db)) -> dict:
     """
     generates store availability report in background and returns report_id
     """
     try:
         # generate report_id
-        report = Report()
+        report = Report(status='Running')
         db.add(report)
         db.commit()
         db.refresh(report)
+        print(f'report_id: {report.report_id}')
 
-        # Get the current datetime and calculate the datetime ranges for the filters
-        now = datetime.utcnow()
+        # now value is hard coded with max timestamp among all the given observations as given data is static. 
+        # TODO: Replace now with `datetime.utcnow()` in future
+        now = datetime(2023, 1, 25, 18, 13, 22, 0, tzinfo=timezone.utc)
 
-        previous_week_start = now - timedelta(weeks=1, days=now.weekday(), hours=now.hour, minutes=now.minute, seconds=now.second, microseconds=now.microsecond)
-        previous_week_end = previous_week_start + timedelta(weeks=1)
+        # get intervals for which report needs to be generated and also add current time
+        report_intervals = get_report_intervals(now)
+        report_intervals['now'] = now
 
-        last_day_start = now - timedelta(days=1, hours=now.hour, minutes=now.minute, seconds=now.second, microseconds=now.microsecond)
-        last_day_end = now
-
-        last_hour_start = now - timedelta(hours=1)
-        last_hour_end = now
-
-        # get all relevant restaurant availability observations
-        store_data['restaurant_status'] = db.query(RestaurantStatus).filter(
-            or_(
-                and_(
-                    RestaurantStatus.timestamp_utc >= previous_week_start, RestaurantStatus.timestamp_utc < previous_week_end
-                ),
-                and_(
-                    RestaurantStatus.timestamp_utc >= last_day_start, RestaurantStatus.timestamp_utc <= last_day_end
-                ),
-                and_(
-                    RestaurantStatus.timestamp_utc >= last_hour_start, RestaurantStatus.timestamp_utc <= last_hour_end
-                )
-            )
-        ).order_by(
-            asc(RestaurantStatus.store_id), 
-            asc(RestaurantStatus.timestamp_utc)
-        ).all()
+        # get relevant observations
+        store_data['stores'] = get_restaurant_status(
+            db,
+            report_intervals
+        )
 
         # generate report in background
         background_tasks.add_task(
-            calculate_uptime_downtime, 
-            store_data, 
+            generate_store_availability_report, 
             db,
+            store_data,
+            report_intervals,
             report
         )
 
-        return report
+        return { "report_id": report.report_id }
     except Exception as e:
         print(e)
         raise HTTPException(
@@ -95,16 +84,18 @@ async def trigger_report(background_tasks: BackgroundTasks, store_data: dict = D
 async def get_report(report_id: int, db: Session = Depends(get_db)) -> ReportBase:
     """
     returns store availability report
-    @report_id: report_id is generated through `/trigger_report` API
     """
     try:
+        print(f'report_id: {report_id}')
+
         if not report_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="report_id is required."
             )
 
-        report = db.query(Report).filter(Report.id == report_id).first()
+        report = db.query(Report).filter(Report.report_id == report_id).first()
+        print(report)
 
         if not report:
             raise HTTPException(
