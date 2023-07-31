@@ -11,6 +11,8 @@ python-dotenv = "*"
 sqlalchemy = "*"
 psycopg2 = "*"
 python-dateutil = "*"
+pytz = "*"
+uuid = "*"
 
 [dev-packages]
 

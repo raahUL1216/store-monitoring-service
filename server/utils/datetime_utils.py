@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from dateutil import parser, tz
+from dateutil import tz
 
 def get_report_intervals(now: datetime) -> dict:
     last_hour_start = now - timedelta(hours=1, minutes=now.minute, seconds=now.second)
@@ -21,10 +21,9 @@ def get_report_intervals(now: datetime) -> dict:
     }
 
 def convert_utc_to_local(timestamp: datetime, timezone: str) -> datetime:
-    utc_datetime = parser.parse(timestamp)
     target_tz = tz.gettz(timezone)
 
-    return utc_datetime.astimezone(target_tz)
+    return timestamp.astimezone(target_tz)
 
 def convert_local_to_utc(local_time: datetime.time, timezone: str) -> datetime.time:
     # Create a dummy date to combine with the local_time

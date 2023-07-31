@@ -95,8 +95,7 @@ async def get_report(report_id: int, db: Session = Depends(get_db)) -> ReportBas
             )
 
         report = db.query(Report).filter(Report.report_id == report_id).first()
-        print(report)
-
+    
         if not report:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
