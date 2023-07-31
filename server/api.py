@@ -17,7 +17,10 @@ from datetime import datetime, timezone
 
 import traceback
 
-app = FastAPI()
+app = FastAPI(
+    title='Store Monitoring Service',
+    description='Generates and stores the store availability report.',
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,12 +36,12 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="server/static"), name="static")
 
 
-@app.get("/", status_code=status.HTTP_200_OK)
+@app.get("/", status_code=status.HTTP_200_OK, tags=["Health check"])
 async def health() -> HealthResponse:
     return HealthResponse(status="Ok")
 
 
-@app.post("/trigger_report", status_code=status.HTTP_201_CREATED)
+@app.post("/trigger_report", status_code=status.HTTP_201_CREATED, tags=["Store availability report"])
 async def trigger_report(background_tasks: BackgroundTasks, store_data: dict = Depends(get_store_data), db: Session = Depends(get_db)) -> dict:
     """
     generates store availability report in background and returns report_id
@@ -76,7 +79,7 @@ async def trigger_report(background_tasks: BackgroundTasks, store_data: dict = D
         )
     
 
-@app.get("/get_report", status_code=status.HTTP_200_OK)
+@app.get("/get_report", status_code=status.HTTP_200_OK, tags=["Store availability report"])
 async def get_report(report_id: int, db: Session = Depends(get_db)):
     """
     returns store availability report
