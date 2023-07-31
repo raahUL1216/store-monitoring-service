@@ -9,7 +9,7 @@ from server.schemas.response import HealthResponse, ReportBase
 from server.models.store import Report
 
 from server.utils.store_availability import generate_store_availability_report
-from server.utils.store_details import get_restaurant_status, get_store_data
+from server.utils.store_details import get_store_data
 from server.utils.report import get_report_by_id
 from server.utils.datetime_utils import get_report_intervals
 
@@ -57,12 +57,6 @@ async def trigger_report(background_tasks: BackgroundTasks, store_data: dict = D
         # get time range(e.g. last_hour, last_day, last_week) for which report needs to be generated
         report_intervals = get_report_intervals(now)
 
-        # get relevant observations based on report_intervals
-        store_data['stores'] = get_restaurant_status(
-            db,
-            report_intervals
-        )
-
         # generate report in background
         background_tasks.add_task(
             generate_store_availability_report, 
@@ -83,7 +77,7 @@ async def trigger_report(background_tasks: BackgroundTasks, store_data: dict = D
     
 
 @app.get("/get_report", status_code=status.HTTP_200_OK)
-async def get_report(report_id: int, db: Session = Depends(get_db)) -> ReportBase:
+async def get_report(report_id: int, db: Session = Depends(get_db)):
     """
     returns store availability report
     """

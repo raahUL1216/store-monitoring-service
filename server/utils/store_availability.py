@@ -2,13 +2,15 @@ import os
 import traceback
 import uuid
 import csv
+from datetime import datetime, timezone, time
 
 from sqlalchemy.orm import Session
 
 from server.models.store import Report 
 
-from datetime import datetime, timezone, time
 from server.utils.datetime_utils import convert_utc_to_local
+from server.utils.store_details import get_restaurant_status
+
 
 days_in_week = 7
 hours_in_day = 24
@@ -90,6 +92,7 @@ def calculate_downtime(
                 store_end,
             )
 
+        downtime_start = downtime_start.replace(tzinfo=timezone.utc)
         downtime_end = downtime_end.replace(tzinfo=timezone.utc)
 
         # calculate downtime duration in seconds
@@ -106,14 +109,14 @@ def calculate_downtime(
 
 
 def generate_store_availability_report(db: Session, store_data: dict, report_intervals: dict, report: Report) -> None:
-    stores = store_data['stores']
+    # get relevant observations based on report_intervals
+    stores = get_restaurant_status(db, report_intervals)
     business_hours = store_data['business_hours']
     timezones = store_data['timezones']
 
     report_file = None
     filename = f"report-{str(uuid.uuid4())}.csv"
-    # file_path = os.path.join(os.getcwd(), "server", "static", "reports", filename)
-    file_path = os.path.join("..", "static", "reports", filename)
+    file_path = os.path.join(os.getcwd(), "server", "static", "reports", filename)
 
     print(f'total stores: {len(stores.items())}')
 
