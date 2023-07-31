@@ -120,7 +120,7 @@ def generate_store_availability_report(db: Session, store_data: dict, report_int
 
     print(f'total stores: {len(stores.items())}')
 
-    try:        
+    try:    
         with open(file_path, 'w', newline='') as report_file:
             writer = csv.DictWriter(report_file, fieldnames=report_fields)
             writer.writeheader()
@@ -128,10 +128,8 @@ def generate_store_availability_report(db: Session, store_data: dict, report_int
             # Iterate through all stores and calculate downtime and uptime
             for store_id, status_entries in stores.items():
                 # below code is for debugging downtime for specific store
-                '''
-                if store_id != 23037829828311628:
-                    continue
-                '''
+                # if store_id != 18176576077807854:
+                #     continue
 
                 store_business_hours = business_hours.get(store_id, {})
                 store_running_time = get_store_running_time_by_interval(
@@ -158,11 +156,26 @@ def generate_store_availability_report(db: Session, store_data: dict, report_int
 
                 # Iterate through all observations of current store, find `inactive -> ... -> active` pattern and take timestamp difference as downtime
                 for index in range(len(status_entries)):
-                    timestamp_utc, status = status_entries[index]
+                    curr_timestamp, curr_status = status_entries[index]
+                    pre_timestamp, pre_status = status_entries[index - 1] if (index - 1) >= 0 else (None, None)
 
-                    # downtime ended, now calculate downtime
-                    if downtime_start and status == 'active':
-                        downtime_end = timestamp_utc
+                    # when last observation of previous day is `inactive`, then extrapolate downtime with time difference of day_start and first_observation time
+                    if pre_timestamp and pre_status:
+                        curr_observation_day = curr_timestamp.weekday()
+                        pre_observation_day = pre_timestamp.weekday()
+
+                        if curr_observation_day - 1 == pre_observation_day and pre_status == 'inactive':
+                            start_time_local, end_time_local = store_business_hours.get(curr_observation_day, (None, None))
+
+                            day_start = time()
+                            start_time_local = start_time_local if start_time_local else day_start
+
+                            downtime_start = datetime.combine(curr_timestamp.date(), start_time_local)
+                            # print(f'downtime started: {downtime_start}')
+
+                    # downtime ended, calculate downtime
+                    if downtime_start and curr_status == 'active':
+                        downtime_end = curr_timestamp
                         # print(f'downtime ended: {downtime_end}')
 
                         downtime = calculate_downtime(
@@ -180,11 +193,11 @@ def generate_store_availability_report(db: Session, store_data: dict, report_int
                         downtime_start = None
 
                     # downtime started, keep looking in observation for downtime end
-                    if not downtime_start and status == 'inactive':
+                    if not downtime_start and curr_status == 'inactive':
                         downtime_start = status_entries[index][0]
                         # print(f'downtime started: {downtime_start}')
                         continue
-
+                        
                 if downtime_start:
                     # process last observation and extrapolate downtime till day end
                     downtime_end = None
@@ -227,3 +240,4 @@ def generate_store_availability_report(db: Session, store_data: dict, report_int
     finally:
         if report_file:
             report_file.close()
+        

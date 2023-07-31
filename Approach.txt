@@ -1,0 +1,22 @@
+My take:
+- Use case is to monitor business data and generate reports/insights. We can leverage timeseries database to support other areas like monitoring stores, data retension period, visualization and other integrations. But considering the given problem statement, we only need to fetch observations(timeseries) once. so, using postgres as of now for simplicity. 
+
+Approach:
+downtime -> inactive -> ... -> active
+uptime -> (total_business_hours - downtime)
+
+Extrapolate downtime:
+- extrapolate downtime of day_end based on last observation of current day
+- extrapolate downtime of day_start based on last observation of previous day 
+
+Runtime complexity:
+O(s*n) where 
+    s = number of stores (≈14k)
+    n = number of observations per store (worst case)
+        (last_hour + last_day + last_week)
+        (1 + 24 + 7 * 24 ≈ 168 in worst case)
+
+≈ 20 lakh iterations
+
+Preprocessing:
+- Cache business hours and timezones in dictionary for faster access
