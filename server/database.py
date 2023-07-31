@@ -1,13 +1,20 @@
+import os
+
 from sqlalchemy import URL, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
+pg_username = os.environ.get('POSTGRES_USER', 'postgres')
+pg_password = os.environ.get('POSTGRES_PASS', None)
+pg_host = os.environ.get('POSTGRES_HOST', 'localhost')
+pg_database = os.environ.get('POSTGRES_DB', 'restaurants')
+
 url_object = URL.create(
     "postgresql+psycopg2",
-    username="postgres",
-    password="Welcome!",
-    host="localhost",
-    database="restaurants",
+    username=pg_username,
+    password=pg_password,
+    host=pg_host,
+    database=pg_database,
 )
 
 engine = create_engine(

@@ -1,11 +1,16 @@
 **Prerequisite:**<br/>
-- Install and activate virtual environment using,
+- Load all 3 data_sources in postgres database (refer store.py for schema)
+- Update postgres database credentials in database.py
 
-> pip install pipenv
+## Development Server
+
+- Install required dependencies and activate virtual environment,
+> pipenv install
 >
 > pipenv shell
 
-<br/>
+- Run below command to start server in watch mode
+> python main.py
 
-## Development Server
-> uvicorn main:app --reload
+## Test APIs at,
+http://localhost:8000/docs
