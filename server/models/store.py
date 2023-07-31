@@ -1,6 +1,6 @@
 from sqlalchemy import Column, SmallInteger, BigInteger, Integer, String, DateTime
 
-from server.database import Base
+from server.database import Base, engine
 
 
 class RestaurantStatus(Base):
@@ -32,3 +32,5 @@ class Report(Base):
     report_id = Column(Integer, primary_key=True, autoincrement='auto')
     status = Column(String(10), default='Running')
     report_csv_url = Column(String(2048))
+
+Base.metadata.create_all(engine)

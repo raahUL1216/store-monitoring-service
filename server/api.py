@@ -10,9 +10,12 @@ from server.models.store import Report
 
 from server.utils.store_availability import generate_store_availability_report
 from server.utils.store_details import get_restaurant_status, get_store_data
+from server.utils.report import get_report_by_id
 from server.utils.datetime_utils import get_report_intervals
 
 from datetime import datetime, timezone
+
+import traceback
 
 app = FastAPI()
 
@@ -46,17 +49,15 @@ async def trigger_report(background_tasks: BackgroundTasks, store_data: dict = D
         db.add(report)
         db.commit()
         db.refresh(report)
-        print(f'report_id: {report.report_id}')
 
         # now value is hard coded with max timestamp among all the given observations as given data is static. 
         # TODO: Replace now with `datetime.utcnow()` in future
         now = datetime(2023, 1, 25, 18, 13, 22, 0, tzinfo=timezone.utc)
 
-        # get intervals for which report needs to be generated and also add current time
+        # get time range(e.g. last_hour, last_day, last_week) for which report needs to be generated
         report_intervals = get_report_intervals(now)
-        report_intervals['now'] = now
 
-        # get relevant observations
+        # get relevant observations based on report_intervals
         store_data['stores'] = get_restaurant_status(
             db,
             report_intervals
@@ -74,6 +75,7 @@ async def trigger_report(background_tasks: BackgroundTasks, store_data: dict = D
         return { "report_id": report.report_id }
     except Exception as e:
         print(e)
+        print(traceback.format_exc())
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
             detail="Error while generating report."
@@ -86,16 +88,14 @@ async def get_report(report_id: int, db: Session = Depends(get_db)) -> ReportBas
     returns store availability report
     """
     try:
-        print(f'report_id: {report_id}')
-
         if not report_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="report_id is required."
             )
 
-        report = db.query(Report).filter(Report.report_id == report_id).first()
-    
+        report = get_report_by_id(db, report_id)
+
         if not report:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -105,6 +105,7 @@ async def get_report(report_id: int, db: Session = Depends(get_db)) -> ReportBas
         return report
     except Exception as e:
         print(e)
+        print(traceback.format_exc())
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
             detail="Error while getting report."
