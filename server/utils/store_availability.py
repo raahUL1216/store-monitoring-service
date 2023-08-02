@@ -40,6 +40,8 @@ def get_store_running_time_by_interval(business_hours: dict, day_of_week: int) -
 
         # store running time for last day
         if i == day_of_week:
+            print(start_time_local)
+            print(end_time_local)
             last_day = store_running_time
 
         # store running time for last week
@@ -96,13 +98,35 @@ def calculate_downtime(
         downtime_end = downtime_end.replace(tzinfo=timezone.utc)
 
         # calculate downtime duration in seconds
-        downtime_duration = (downtime_end - downtime_start).total_seconds()
+        downtime_duration = abs(downtime_end - downtime_start).total_seconds()
 
         if downtime_end >= report_intervals['last_hour_start']:
+            # update downtime end to hour end when downtime lasted more than hour
+            downtime_end = min(
+                report_intervals['last_hour_end'],
+                downtime_end
+            ) 
+
+            downtime_duration = abs(downtime_end - downtime_start).total_seconds()
+
             downtime['last_hour'] = min(downtime_duration, seconds_in_hour)
         elif downtime_end >= report_intervals['last_day_start']:
+            # update downtime start to day start when observation was taken before business hours
+            downtime_start = max(
+                datetime.combine(downtime_start.date(), store_start, tzinfo=timezone.utc),
+                downtime_start
+            )
+
+            downtime_duration = abs(downtime_end - downtime_start).total_seconds()
+
             downtime['last_day'] = min(downtime_duration, seconds_in_day)
         elif downtime_end >= report_intervals['last_week_start']:
+            # update downtime start to day start when observation was taken before business hours
+            downtime_start = max(
+                datetime.combine(downtime_start.date(), store_start, tzinfo=timezone.utc),
+                downtime_start
+            )
+
             downtime['last_week'] = min(downtime_duration, seconds_in_week)
 
     return downtime
@@ -128,7 +152,7 @@ def generate_store_availability_report(db: Session, store_data: dict, report_int
             # Iterate through all stores and calculate downtime and uptime
             for store_id, status_entries in stores.items():
                 # below code is for debugging downtime for specific store
-                # if store_id != 18176576077807854:
+                # if store_id != 6099875917665264465:
                 #     continue
 
                 store_business_hours = business_hours.get(store_id, {})
